@@ -18,6 +18,22 @@
         }                                                                                   \
     } while (false)
 
+#define REQUIRE_TRUE(value)                                                                 \
+    do {                                                                                    \
+        if (!(value)) {                                                                     \
+            std::cerr << "Test failed at line " << __LINE__ << ": expected true\n";     \
+            return EXIT_FAILURE;                                                           \
+        }                                                                                   \
+    } while (false)
+
+#define REQUIRE_FALSE(value)                                                                \
+    do {                                                                                    \
+        if (value) {                                                                        \
+            std::cerr << "Test failed at line " << __LINE__ << ": expected false\n";    \
+            return EXIT_FAILURE;                                                           \
+        }                                                                                   \
+    } while (false)
+
 static std::string utf8(std::u32string_view text) {
     return bgime::utf::u32ToUtf8(text);
 }
@@ -32,6 +48,7 @@ int main() {
     REQUIRE_EQ(convert("ch"), utf8(U"\u0447"));
     REQUIRE_EQ(convert("zh"), utf8(U"\u0436"));
     REQUIRE_EQ(convert("sht"), utf8(U"\u0449"));
+    REQUIRE_EQ(convert(utf8(U"\u015Ft")), utf8(U"\u0449"));
     REQUIRE_EQ(convert("ts"), utf8(U"\u0446"));
     REQUIRE_EQ(convert("ya"), utf8(U"\u044F"));
     REQUIRE_EQ(convert("yu"), utf8(U"\u044E"));
@@ -45,21 +62,56 @@ int main() {
     REQUIRE_EQ(convert(utf8(U"az s\u0131m")), utf8(U"\u0430\u0437 \u0441\u044A\u043C"));
     REQUIRE_EQ(convert(utf8(U"\u015F \u00E7 j \u0131 \u00FC")), utf8(U"\u0448 \u0447 \u0436 \u044A \u044E"));
 
+    // Streaming composer: normal letters are committed immediately.
     bgime::Composer composer;
-    auto r1 = composer.handleChar(U's');
-    REQUIRE_EQ(bgime::utf::u32ToUtf8(r1.preedit), utf8(U"\u0441"));
+    auto a = composer.handleChar(U'a');
+    REQUIRE_TRUE(a.edit == bgime::EditType::Append);
+    REQUIRE_EQ(utf8(a.text), utf8(U"\u0430"));
+    REQUIRE_FALSE(a.pending);
+    REQUIRE_TRUE(composer.empty());
 
-    auto r2 = composer.handleChar(U'h');
-    REQUIRE_EQ(bgime::utf::u32ToUtf8(r2.preedit), utf8(U"\u0448"));
+    // Only ambiguous suffixes stay pending.
+    auto s = composer.handleChar(U's');
+    REQUIRE_TRUE(s.edit == bgime::EditType::Append);
+    REQUIRE_EQ(utf8(s.text), utf8(U"\u0441"));
+    REQUIRE_TRUE(s.pending);
+    REQUIRE_EQ(utf8(composer.rawBuffer()), "s");
 
-    auto r3 = composer.handleBackspace();
-    REQUIRE_EQ(bgime::utf::u32ToUtf8(r3.preedit), utf8(U"\u0441"));
+    auto sh = composer.handleChar(U'h');
+    REQUIRE_TRUE(sh.edit == bgime::EditType::ReplacePending);
+    REQUIRE_EQ(utf8(sh.text), utf8(U"\u0448"));
+    REQUIRE_TRUE(sh.pending); // sh can still become sht
+    REQUIRE_EQ(utf8(composer.rawBuffer()), "sh");
 
-    auto r4 = composer.handleChar(U'h');
-    REQUIRE_EQ(bgime::utf::u32ToUtf8(r4.preedit), utf8(U"\u0448"));
+    auto sht = composer.handleChar(U't');
+    REQUIRE_TRUE(sht.edit == bgime::EditType::ReplacePending);
+    REQUIRE_EQ(utf8(sht.text), utf8(U"\u0449"));
+    REQUIRE_FALSE(sht.pending);
+    REQUIRE_TRUE(composer.empty());
 
-    auto r5 = composer.handleChar(U' ');
-    REQUIRE_EQ(bgime::utf::u32ToUtf8(r5.commit), utf8(U"\u0448 "));
+    // If a pending sequence cannot grow, leave the already-visible char in
+    // place and process only the new key.
+    auto s2 = composer.handleChar(U's');
+    REQUIRE_TRUE(s2.pending);
+    auto d = composer.handleChar(U'd');
+    REQUIRE_TRUE(d.edit == bgime::EditType::Append);
+    REQUIRE_EQ(utf8(d.text), utf8(U"\u0434"));
+    REQUIRE_FALSE(d.pending);
+    REQUIRE_TRUE(composer.empty());
+
+    // Backspace edits only the tiny pending suffix.
+    const auto pendingS = composer.handleChar(U's');
+    const auto pendingSh = composer.handleChar(U'h');
+    (void)pendingS;
+    (void)pendingSh;
+    auto back = composer.handleBackspace();
+    REQUIRE_TRUE(back.edit == bgime::EditType::ReplacePending);
+    REQUIRE_EQ(utf8(back.text), utf8(U"\u0441"));
+    REQUIRE_TRUE(back.pending);
+
+    // Reset must forget state without requesting any text deletion.
+    composer.reset();
+    REQUIRE_TRUE(composer.empty());
 
     std::cout << "All tests passed.\n";
     return EXIT_SUCCESS;

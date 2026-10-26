@@ -51,6 +51,7 @@ Mapping Mapping::turkishQ() {
     Mapping mapping = standardLatin();
 
     // Turkish keyboard friendly shortcuts.
+    mapping.addRule(U"\u015Ft", U"\u0449"); // şt -> щ
     mapping.addRule(U"\u015F", U"\u0448"); // ş -> ш
     mapping.addRule(U"\u00E7", U"\u0447"); // ç -> ч
     mapping.addRule(U"j",      U"\u0436"); // j -> ж

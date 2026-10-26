@@ -1,0 +1,8 @@
+[Addon]
+Name=BulgarianIME
+Category=InputMethod
+Version=@PROJECT_VERSION@
+Library=bulgarianime
+Type=SharedLibrary
+OnDemand=True
+Configurable=False

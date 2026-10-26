@@ -1,17 +1,20 @@
-# Build folders
+# CMake / build output
 build/
+build-*/
 out/
 cmake-build-*/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+CTestTestfile.cmake
+Testing/
 
 # Visual Studio
 .vs/
-*.sln
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
+*.sln
 
 # Binaries
 *.exe
@@ -22,13 +25,6 @@ cmake_install.cmake
 *.ilk
 *.exp
 
-# Logs
-*.log
-
-# OS files
+# OS
 .DS_Store
 Thumbs.db
-
-# CMake generated
-CTestTestfile.cmake
-Testing/

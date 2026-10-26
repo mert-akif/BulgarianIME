@@ -1,45 +1,53 @@
 #pragma once
 
+#include "bgime/Mapping.hpp"
 #include "bgime/Transliterator.hpp"
+
 #include <string>
 
 namespace bgime {
 
-enum class ActionType {
-    None,
-    UpdatePreedit,
-    Commit,
-    Cancel,
-    PassThrough
+enum class EditType {
+    PassThrough,
+    Append,
+    ReplacePending
 };
 
 struct ComposeResult {
-    ActionType action = ActionType::None;
-    std::u32string preedit;
-    std::u32string commit;
+    EditType edit = EditType::PassThrough;
+    std::u32string text;
     bool consumeKey = false;
+    bool pending = false;
 };
 
+// Streaming composer for the hook/IME layer.
+//
+// Important invariant:
+//   pending_ contains ONLY the shortest suffix that may still become a
+//   multi-key transliteration (s/sh, z, t, c, y, ...).
+// Normal letters are converted and committed immediately.
 class Composer {
 public:
-    explicit Composer(Transliterator transliterator = Transliterator{});
+    explicit Composer(Mapping mapping = Mapping::turkishQ());
 
     [[nodiscard]] ComposeResult handleChar(char32_t ch);
     [[nodiscard]] ComposeResult handleBackspace();
-    [[nodiscard]] ComposeResult handleEnter();
     [[nodiscard]] ComposeResult handleEscape();
-    [[nodiscard]] ComposeResult reset();
+
+    // Clears internal composition state WITHOUT changing text already written
+    // to the target application. Use this on mouse clicks/focus changes.
+    void reset();
 
     [[nodiscard]] const std::u32string& rawBuffer() const;
     [[nodiscard]] std::u32string currentPreedit() const;
     [[nodiscard]] bool empty() const;
 
 private:
+    Mapping mapping_;
     Transliterator transliterator_;
-    std::u32string buffer_;
+    std::u32string pending_;
 
-    [[nodiscard]] ComposeResult updatePreedit() const;
-    [[nodiscard]] ComposeResult commitBuffer(std::u32string suffix = U"");
+    [[nodiscard]] ComposeResult processFreshChar(char32_t ch);
 };
 
 } // namespace bgime

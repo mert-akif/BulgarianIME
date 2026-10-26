@@ -6,9 +6,9 @@
 #include "bgime/Composer.hpp"
 #include "bgime/Utf.hpp"
 
-#include <array>
 #include <cstdint>
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,25 +19,24 @@ constexpr int HOTKEY_TOGGLE = 1;
 constexpr int HOTKEY_QUIT = 2;
 
 HHOOK g_keyboardHook = nullptr;
+HHOOK g_mouseHook = nullptr;
 bool g_enabled = true;
 bgime::Composer g_composer{};
-std::size_t g_preeditUtf16Units = 0;
+std::size_t g_pendingUtf16Units = 0;
+HWND g_lastForegroundWindow = nullptr;
 
 std::wstring u32ToUtf16(std::u32string_view input) {
     std::wstring output;
     output.reserve(input.size());
-
     for (char32_t cp : input) {
         if (cp <= 0xFFFF) {
             output.push_back(static_cast<wchar_t>(cp));
-            continue;
+        } else {
+            cp -= 0x10000;
+            output.push_back(static_cast<wchar_t>(0xD800 + ((cp >> 10) & 0x3FF)));
+            output.push_back(static_cast<wchar_t>(0xDC00 + (cp & 0x3FF)));
         }
-
-        cp -= 0x10000;
-        output.push_back(static_cast<wchar_t>(0xD800 + ((cp >> 10) & 0x3FF)));
-        output.push_back(static_cast<wchar_t>(0xDC00 + (cp & 0x3FF)));
     }
-
     return output;
 }
 
@@ -58,72 +57,68 @@ void sendInputs(std::vector<INPUT>& inputs) {
 void sendBackspaces(std::size_t count) {
     std::vector<INPUT> inputs;
     inputs.reserve(count * 2);
-
     for (std::size_t i = 0; i < count; ++i) {
         INPUT down{};
         down.type = INPUT_KEYBOARD;
         down.ki.wVk = VK_BACK;
-
         INPUT up = down;
         up.ki.dwFlags = KEYEVENTF_KEYUP;
-
         inputs.push_back(down);
         inputs.push_back(up);
     }
-
     sendInputs(inputs);
 }
 
 void sendUnicodeText(std::u32string_view text) {
     const std::wstring utf16 = u32ToUtf16(text);
-
     std::vector<INPUT> inputs;
     inputs.reserve(utf16.size() * 2);
-
     for (wchar_t ch : utf16) {
         INPUT down{};
         down.type = INPUT_KEYBOARD;
         down.ki.wScan = static_cast<WORD>(ch);
         down.ki.dwFlags = KEYEVENTF_UNICODE;
-
         INPUT up = down;
         up.ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
-
         inputs.push_back(down);
         inputs.push_back(up);
     }
-
     sendInputs(inputs);
 }
 
-void replacePreedit(std::u32string_view newPreedit) {
-    if (g_preeditUtf16Units > 0) {
-        sendBackspaces(g_preeditUtf16Units);
-    }
-
-    if (!newPreedit.empty()) {
-        sendUnicodeText(newPreedit);
-    }
-
-    g_preeditUtf16Units = utf16UnitCount(newPreedit);
+void commitPendingInPlace() {
+    g_composer.reset();
+    g_pendingUtf16Units = 0;
 }
 
-void commitCurrentPreeditInPlace() {
-    g_composer.reset();
-    g_preeditUtf16Units = 0;
+void replacePending(std::u32string_view text, bool remainsPending) {
+    if (g_pendingUtf16Units > 0) {
+        sendBackspaces(g_pendingUtf16Units);
+    }
+    if (!text.empty()) {
+        sendUnicodeText(text);
+    }
+    g_pendingUtf16Units = remainsPending ? utf16UnitCount(text) : 0;
 }
 
-void cancelCurrentPreedit() {
-    if (g_preeditUtf16Units > 0) {
-        sendBackspaces(g_preeditUtf16Units);
+bool applyComposeResult(const bgime::ComposeResult& result) {
+    switch (result.edit) {
+        case bgime::EditType::PassThrough:
+            return false;
+        case bgime::EditType::Append:
+            if (!result.text.empty()) {
+                sendUnicodeText(result.text);
+            }
+            g_pendingUtf16Units = result.pending ? utf16UnitCount(result.text) : 0;
+            return result.consumeKey;
+        case bgime::EditType::ReplacePending:
+            replacePending(result.text, result.pending);
+            return result.consumeKey;
     }
-
-    g_composer.reset();
-    g_preeditUtf16Units = 0;
+    return false;
 }
 
 bool hasForbiddenModifierDown() {
-    // Do not convert shortcut combinations. Shift is intentionally allowed.
     return (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 ||
            (GetAsyncKeyState(VK_MENU) & 0x8000) != 0 ||
            (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
@@ -132,12 +127,17 @@ bool hasForbiddenModifierDown() {
 
 HKL foregroundKeyboardLayout() {
     HWND foreground = GetForegroundWindow();
-    DWORD threadId = 0;
-    if (foreground != nullptr) {
-        threadId = GetWindowThreadProcessId(foreground, nullptr);
-    }
-
+    DWORD threadId = foreground ? GetWindowThreadProcessId(foreground, nullptr) : 0;
     return GetKeyboardLayout(threadId);
+}
+
+void syncForegroundWindow() {
+    HWND current = GetForegroundWindow();
+    if (current != g_lastForegroundWindow) {
+        commitPendingInPlace();
+        g_lastForegroundWindow = current;
+        std::cout << "[state] foreground changed -> pending cleared\n";
+    }
 }
 
 bool tryGetUnicodeChar(const KBDLLHOOKSTRUCT& event, char32_t& outChar) {
@@ -150,19 +150,16 @@ bool tryGetUnicodeChar(const KBDLLHOOKSTRUCT& event, char32_t& outChar) {
         return false;
     }
 
-    // GetKeyboardState may lag behind inside a low-level hook.
     if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
         state[VK_SHIFT] |= 0x80;
         state[VK_LSHIFT] |= 0x80;
         state[VK_RSHIFT] |= 0x80;
     }
-
     if (GetKeyState(VK_CAPITAL) & 0x0001) {
         state[VK_CAPITAL] |= 0x01;
     }
 
     WCHAR chars[8]{};
-    const HKL layout = foregroundKeyboardLayout();
     const int rc = ToUnicodeEx(
         event.vkCode,
         event.scanCode,
@@ -170,7 +167,7 @@ bool tryGetUnicodeChar(const KBDLLHOOKSTRUCT& event, char32_t& outChar) {
         chars,
         static_cast<int>(std::size(chars)),
         0,
-        layout
+        foregroundKeyboardLayout()
     );
 
     if (rc <= 0) {
@@ -185,54 +182,38 @@ bool isKeyDown(WPARAM wParam) {
     return wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
 }
 
-LRESULT passToNext(int code, WPARAM wParam, LPARAM lParam) {
-    return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
-}
-
 LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
     if (code < 0) {
-        return passToNext(code, wParam, lParam);
+        return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
     }
 
     const auto* event = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
-    if (event == nullptr) {
-        return passToNext(code, wParam, lParam);
+    if (!event || (event->flags & LLKHF_INJECTED) != 0 || !isKeyDown(wParam)) {
+        return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
     }
 
-    // Never process our own SendInput events.
-    if ((event->flags & LLKHF_INJECTED) != 0) {
-        return passToNext(code, wParam, lParam);
-    }
-
-    if (!isKeyDown(wParam)) {
-        return passToNext(code, wParam, lParam);
-    }
+    syncForegroundWindow();
 
     if (!g_enabled) {
-        commitCurrentPreeditInPlace();
-        return passToNext(code, wParam, lParam);
+        commitPendingInPlace();
+        return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
     }
 
     switch (event->vkCode) {
         case VK_BACK: {
-            if (g_preeditUtf16Units == 0 && g_composer.empty()) {
-                return passToNext(code, wParam, lParam);
+            if (g_composer.empty()) {
+                return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
             }
-
             const auto result = g_composer.handleBackspace();
-            replacePreedit(result.preedit);
-            return 1;
+            return applyComposeResult(result) ? 1 : CallNextHookEx(g_keyboardHook, code, wParam, lParam);
         }
-
         case VK_ESCAPE: {
-            if (g_preeditUtf16Units == 0 && g_composer.empty()) {
-                return passToNext(code, wParam, lParam);
+            if (g_composer.empty()) {
+                return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
             }
-
-            cancelCurrentPreedit();
-            return 1;
+            const auto result = g_composer.handleEscape();
+            return applyComposeResult(result) ? 1 : CallNextHookEx(g_keyboardHook, code, wParam, lParam);
         }
-
         case VK_RETURN:
         case VK_TAB:
         case VK_SPACE:
@@ -244,46 +225,64 @@ LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
         case VK_END:
         case VK_PRIOR:
         case VK_NEXT:
-        case VK_DELETE: {
-            commitCurrentPreeditInPlace();
-            return passToNext(code, wParam, lParam);
-        }
-
+        case VK_DELETE:
+            commitPendingInPlace();
+            return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
         default:
             break;
     }
 
     char32_t typed = 0;
-    if (!tryGetUnicodeChar(*event, typed)) {
-        commitCurrentPreeditInPlace();
-        return passToNext(code, wParam, lParam);
-    }
-
-    if (!bgime::utf::isComposeChar(typed)) {
-        commitCurrentPreeditInPlace();
-        return passToNext(code, wParam, lParam);
+    if (!tryGetUnicodeChar(*event, typed) || !bgime::utf::isComposeChar(typed)) {
+        commitPendingInPlace();
+        return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
     }
 
     const auto result = g_composer.handleChar(typed);
-    replacePreedit(result.preedit);
-    return 1;
+    return applyComposeResult(result) ? 1 : CallNextHookEx(g_keyboardHook, code, wParam, lParam);
+}
+
+bool isMouseCommitEvent(WPARAM wParam) {
+    return wParam == WM_LBUTTONDOWN ||
+           wParam == WM_RBUTTONDOWN ||
+           wParam == WM_MBUTTONDOWN ||
+           wParam == WM_XBUTTONDOWN;
+}
+
+LRESULT CALLBACK mouseProc(int code, WPARAM wParam, LPARAM lParam) {
+    if (code >= 0 && isMouseCommitEvent(wParam)) {
+        if (!g_composer.empty()) {
+            std::cout << "[state] mouse click -> pending cleared\n";
+        }
+        commitPendingInPlace();
+    }
+    return CallNextHookEx(g_mouseHook, code, wParam, lParam);
 }
 
 } // namespace
 
 int main() {
     SetConsoleOutputCP(CP_UTF8);
-    std::cout << "BulgarianIME Debug Console Hook is running.\n";
-    std::cout << "Open Notepad or any text field and type: zdravey az sım sh ch zh sht\n";
+    std::cout << "BulgarianIME optimized hook is running.\n";
+    std::cout << "Only ambiguous suffixes are buffered (s/sh, z, c, t, y...).\n";
+    std::cout << "Mouse clicks clear pending state without deleting visible text.\n";
     std::cout << "Ctrl + Alt + B = enable/disable\n";
     std::cout << "Ctrl + Alt + Q = quit\n\n";
 
-    g_keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, keyboardProc, GetModuleHandleW(nullptr), 0);
+    g_lastForegroundWindow = GetForegroundWindow();
+
+    HINSTANCE instance = GetModuleHandleW(nullptr);
+    g_keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, keyboardProc, instance, 0);
     if (g_keyboardHook == nullptr) {
         std::cout << "ERROR: Keyboard hook could not be installed. GetLastError=" << GetLastError() << "\n";
-        std::cout << "Try running the exe normally first. If the target app is admin, run this as admin too.\n";
-        std::cout << "Press Enter to close...";
-        std::cin.get();
+        return 1;
+    }
+
+    g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, mouseProc, instance, 0);
+    if (g_mouseHook == nullptr) {
+        std::cout << "ERROR: Mouse hook could not be installed. GetLastError=" << GetLastError() << "\n";
+        UnhookWindowsHookEx(g_keyboardHook);
+        g_keyboardHook = nullptr;
         return 1;
     }
 
@@ -294,12 +293,11 @@ int main() {
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         if (msg.message == WM_HOTKEY) {
             if (msg.wParam == HOTKEY_TOGGLE) {
-                commitCurrentPreeditInPlace();
+                commitPendingInPlace();
                 g_enabled = !g_enabled;
                 std::cout << (g_enabled ? "BulgarianIME ENABLED\n" : "BulgarianIME DISABLED\n");
                 continue;
             }
-
             if (msg.wParam == HOTKEY_QUIT) {
                 break;
             }
@@ -312,6 +310,10 @@ int main() {
     UnregisterHotKey(nullptr, HOTKEY_TOGGLE);
     UnregisterHotKey(nullptr, HOTKEY_QUIT);
 
+    if (g_mouseHook != nullptr) {
+        UnhookWindowsHookEx(g_mouseHook);
+        g_mouseHook = nullptr;
+    }
     if (g_keyboardHook != nullptr) {
         UnhookWindowsHookEx(g_keyboardHook);
         g_keyboardHook = nullptr;

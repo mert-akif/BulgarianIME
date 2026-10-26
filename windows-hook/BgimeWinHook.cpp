@@ -7,6 +7,7 @@
 #include "bgime/Utf.hpp"
 
 #include <cstdint>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -17,9 +18,11 @@ constexpr int HOTKEY_TOGGLE = 1;
 constexpr int HOTKEY_QUIT = 2;
 
 HHOOK g_keyboardHook = nullptr;
+HHOOK g_mouseHook = nullptr;
 bool g_enabled = true;
 bgime::Composer g_composer{};
-std::size_t g_preeditUtf16Units = 0;
+std::size_t g_pendingUtf16Units = 0;
+HWND g_lastForegroundWindow = nullptr;
 
 std::wstring u32ToUtf16(std::u32string_view input) {
     std::wstring output;
@@ -48,11 +51,9 @@ std::size_t utf16UnitCount(std::u32string_view input) {
 }
 
 void sendInputs(std::vector<INPUT>& inputs) {
-    if (inputs.empty()) {
-        return;
+    if (!inputs.empty()) {
+        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
     }
-
-    SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
 }
 
 void sendBackspaces(std::size_t count) {
@@ -96,35 +97,48 @@ void sendUnicodeText(std::u32string_view text) {
     sendInputs(inputs);
 }
 
-void replacePreedit(std::u32string_view newPreedit) {
-    if (g_preeditUtf16Units > 0) {
-        sendBackspaces(g_preeditUtf16Units);
-    }
-
-    if (!newPreedit.empty()) {
-        sendUnicodeText(newPreedit);
-    }
-
-    g_preeditUtf16Units = utf16UnitCount(newPreedit);
-}
-
-void commitCurrentPreeditInPlace() {
-    // The simulated preedit is already written into the focused text field.
-    // We only clear our state so the next word does not erase the previous one.
+// Forget the tiny ambiguous suffix, but leave its already-visible Cyrillic
+// character exactly where it is. This is what we want for clicks, cursor
+// movement, focus changes, separators and toggle-off.
+void commitPendingInPlace() {
     g_composer.reset();
-    g_preeditUtf16Units = 0;
+    g_pendingUtf16Units = 0;
 }
 
-void cancelCurrentPreedit() {
-    if (g_preeditUtf16Units > 0) {
-        sendBackspaces(g_preeditUtf16Units);
+void replacePending(std::u32string_view text, bool remainsPending) {
+    if (g_pendingUtf16Units > 0) {
+        sendBackspaces(g_pendingUtf16Units);
     }
 
-    g_composer.reset();
-    g_preeditUtf16Units = 0;
+    if (!text.empty()) {
+        sendUnicodeText(text);
+    }
+
+    g_pendingUtf16Units = remainsPending ? utf16UnitCount(text) : 0;
 }
 
-bool isCtrlAltWinDown() {
+bool applyComposeResult(const bgime::ComposeResult& result) {
+    switch (result.edit) {
+        case bgime::EditType::PassThrough:
+            return false;
+
+        case bgime::EditType::Append:
+            if (!result.text.empty()) {
+                sendUnicodeText(result.text);
+            }
+            g_pendingUtf16Units = result.pending ? utf16UnitCount(result.text) : 0;
+            return result.consumeKey;
+
+        case bgime::EditType::ReplacePending:
+            replacePending(result.text, result.pending);
+            return result.consumeKey;
+    }
+
+    return false;
+}
+
+bool hasForbiddenModifierDown() {
+    // Shift is intentionally allowed; Ctrl/Alt/Win shortcuts are not converted.
     return (GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0 ||
            (GetAsyncKeyState(VK_MENU) & 0x8000) != 0 ||
            (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0 ||
@@ -141,8 +155,16 @@ HKL foregroundKeyboardLayout() {
     return GetKeyboardLayout(threadId);
 }
 
+void syncForegroundWindow() {
+    HWND current = GetForegroundWindow();
+    if (current != g_lastForegroundWindow) {
+        commitPendingInPlace();
+        g_lastForegroundWindow = current;
+    }
+}
+
 bool tryGetUnicodeChar(const KBDLLHOOKSTRUCT& event, char32_t& outChar) {
-    if (isCtrlAltWinDown()) {
+    if (hasForbiddenModifierDown()) {
         return false;
     }
 
@@ -151,7 +173,6 @@ bool tryGetUnicodeChar(const KBDLLHOOKSTRUCT& event, char32_t& outChar) {
         return false;
     }
 
-    // GetKeyboardState can lag behind for modifier keys inside a low-level hook.
     if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
         state[VK_SHIFT] |= 0x80;
         state[VK_LSHIFT] |= 0x80;
@@ -186,52 +207,52 @@ bool isKeyDown(WPARAM wParam) {
     return wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
 }
 
-LRESULT passToNext(int code, WPARAM wParam, LPARAM lParam) {
+LRESULT passKeyboardToNext(int code, WPARAM wParam, LPARAM lParam) {
     return CallNextHookEx(g_keyboardHook, code, wParam, lParam);
 }
 
-LRESULT keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
     if (code < 0) {
-        return passToNext(code, wParam, lParam);
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
     const auto* event = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
     if (event == nullptr) {
-        return passToNext(code, wParam, lParam);
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
-    // Never process our own SendInput events.
     if ((event->flags & LLKHF_INJECTED) != 0) {
-        return passToNext(code, wParam, lParam);
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
     if (!isKeyDown(wParam)) {
-        return passToNext(code, wParam, lParam);
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
+    syncForegroundWindow();
+
     if (!g_enabled) {
-        commitCurrentPreeditInPlace();
-        return passToNext(code, wParam, lParam);
+        commitPendingInPlace();
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
     switch (event->vkCode) {
         case VK_BACK: {
-            if (g_preeditUtf16Units == 0 && g_composer.empty()) {
-                return passToNext(code, wParam, lParam);
+            if (g_composer.empty()) {
+                return passKeyboardToNext(code, wParam, lParam);
             }
 
             const auto result = g_composer.handleBackspace();
-            replacePreedit(result.preedit);
-            return 1;
+            return applyComposeResult(result) ? 1 : passKeyboardToNext(code, wParam, lParam);
         }
 
         case VK_ESCAPE: {
-            if (g_preeditUtf16Units == 0 && g_composer.empty()) {
-                return passToNext(code, wParam, lParam);
+            if (g_composer.empty()) {
+                return passKeyboardToNext(code, wParam, lParam);
             }
 
-            cancelCurrentPreedit();
-            return 1;
+            const auto result = g_composer.handleEscape();
+            return applyComposeResult(result) ? 1 : passKeyboardToNext(code, wParam, lParam);
         }
 
         case VK_RETURN:
@@ -245,10 +266,9 @@ LRESULT keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
         case VK_END:
         case VK_PRIOR:
         case VK_NEXT:
-        case VK_DELETE: {
-            commitCurrentPreeditInPlace();
-            return passToNext(code, wParam, lParam);
-        }
+        case VK_DELETE:
+            commitPendingInPlace();
+            return passKeyboardToNext(code, wParam, lParam);
 
         default:
             break;
@@ -256,28 +276,45 @@ LRESULT keyboardProc(int code, WPARAM wParam, LPARAM lParam) {
 
     char32_t typed = 0;
     if (!tryGetUnicodeChar(*event, typed)) {
-        commitCurrentPreeditInPlace();
-        return passToNext(code, wParam, lParam);
+        commitPendingInPlace();
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
     if (!bgime::utf::isComposeChar(typed)) {
-        commitCurrentPreeditInPlace();
-        return passToNext(code, wParam, lParam);
+        commitPendingInPlace();
+        return passKeyboardToNext(code, wParam, lParam);
     }
 
     const auto result = g_composer.handleChar(typed);
-    replacePreedit(result.preedit);
-    return 1;
+    return applyComposeResult(result) ? 1 : passKeyboardToNext(code, wParam, lParam);
+}
+
+bool isMouseCommitEvent(WPARAM wParam) {
+    return wParam == WM_LBUTTONDOWN ||
+           wParam == WM_RBUTTONDOWN ||
+           wParam == WM_MBUTTONDOWN ||
+           wParam == WM_XBUTTONDOWN;
+}
+
+LRESULT CALLBACK mouseProc(int code, WPARAM wParam, LPARAM lParam) {
+    if (code >= 0 && isMouseCommitEvent(wParam)) {
+        // Crucially: do NOT send Backspace here. The click may move the caret
+        // before another event is processed. We simply forget composition state.
+        commitPendingInPlace();
+    }
+
+    return CallNextHookEx(g_mouseHook, code, wParam, lParam);
 }
 
 void showStartupMessage() {
     MessageBoxW(
         nullptr,
         L"BulgarianIME hook mode is running.\n\n"
-        L"Type in any text field and Latin/Turkish-Q keys will be converted to Bulgarian Cyrillic.\n\n"
+        L"Normal letters are committed immediately; only ambiguous sequences "
+        L"such as s/sh/sht, z/zh, c/ch, t/ts and y/ya/yu are kept temporarily.\n\n"
+        L"Mouse clicks now clear composition state.\n\n"
         L"Ctrl + Alt + B : enable / disable\n"
-        L"Ctrl + Alt + Q : quit\n\n"
-        L"Do not use this hook inside password fields or games. This is an MVP before the real TSF IME.",
+        L"Ctrl + Alt + Q : quit",
         L"BulgarianIME",
         MB_OK | MB_ICONINFORMATION
     );
@@ -295,9 +332,19 @@ void showToggleMessage() {
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+    g_lastForegroundWindow = GetForegroundWindow();
+
     g_keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, keyboardProc, instance, 0);
     if (g_keyboardHook == nullptr) {
         MessageBoxW(nullptr, L"Keyboard hook could not be installed.", L"BulgarianIME", MB_OK | MB_ICONERROR);
+        return 1;
+    }
+
+    g_mouseHook = SetWindowsHookExW(WH_MOUSE_LL, mouseProc, instance, 0);
+    if (g_mouseHook == nullptr) {
+        UnhookWindowsHookEx(g_keyboardHook);
+        g_keyboardHook = nullptr;
+        MessageBoxW(nullptr, L"Mouse hook could not be installed.", L"BulgarianIME", MB_OK | MB_ICONERROR);
         return 1;
     }
 
@@ -310,7 +357,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         if (msg.message == WM_HOTKEY) {
             if (msg.wParam == HOTKEY_TOGGLE) {
-                commitCurrentPreeditInPlace();
+                commitPendingInPlace();
                 g_enabled = !g_enabled;
                 showToggleMessage();
                 continue;
@@ -327,6 +374,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
 
     UnregisterHotKey(nullptr, HOTKEY_TOGGLE);
     UnregisterHotKey(nullptr, HOTKEY_QUIT);
+
+    if (g_mouseHook != nullptr) {
+        UnhookWindowsHookEx(g_mouseHook);
+        g_mouseHook = nullptr;
+    }
 
     if (g_keyboardHook != nullptr) {
         UnhookWindowsHookEx(g_keyboardHook);

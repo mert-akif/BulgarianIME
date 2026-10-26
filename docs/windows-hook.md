@@ -1,22 +1,23 @@
-# Windows Hook MVP
+# Windows hook notes
 
-This version is a temporary Windows global keyboard hook before the real TSF IME.
+## Streaming design
 
-Run `BulgarianIME.exe` or `BulgarianIME_DebugConsole.exe`.
+The Windows hook does not retain a whole word anymore.
 
-Do **not** run `bgime-cli.exe` if you expect system-wide typing conversion. The CLI only converts text you pass to it.
+The composer stores only an ambiguous suffix that could still match a longer transliteration rule. All unambiguous mappings are inserted immediately.
 
-## Test
+Examples:
 
-1. Start `BulgarianIME_DebugConsole.exe`.
-2. Leave the console open.
-3. Open Notepad.
-4. Type `zdravey az sım sh ch zh sht`.
-5. Expected: `здравей аз съм ш ч ж щ`.
+- `a` -> inserts `а`, no state retained.
+- `s` -> inserts `с`, retains raw `s` because `sh`/`sht` are possible.
+- `sh` -> replaces only the pending `с` with `ш`, retains raw `sh` because `sht` is possible.
+- `sht` -> replaces only the pending `ш` with `щ`, then clears state.
+- `sd` -> `с` remains untouched; only `д` is appended and state is cleared.
 
-## If it does not work
+## Mouse/focus reset
 
-- Make sure you are running `BulgarianIME_DebugConsole.exe` or `BulgarianIME.exe`, not `bgime-cli.exe`.
-- If your target app runs as Administrator, run BulgarianIME as Administrator too.
-- Do not test in password fields, games, or apps with anti-cheat.
-- Start with Notepad.
+A `WH_MOUSE_LL` hook clears composition state on left/right/middle/X-button clicks.
+
+The reset is intentionally state-only. It must never send Backspace on a click because the click may move the caret to a different location.
+
+Foreground-window changes and cursor/navigation keys also commit the pending state in place.
