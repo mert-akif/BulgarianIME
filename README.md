@@ -80,8 +80,8 @@ This is still a Windows hook MVP, not the final TSF IME. Avoid using it in passw
 - [ ] System tray icon
 - [ ] Configurable mappings
 - [ ] Windows startup option
-- [ ] Linux support
-- [ ] Fcitx5 Linux input method
+- [x] Linux support
+- [x] Fcitx5 Linux input method
 - [ ] Full Windows TSF IME
 
 ## Linux / Ubuntu (Fcitx5)
