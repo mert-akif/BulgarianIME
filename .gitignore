@@ -1,6 +1,5 @@
-# CMake / build output
+# CMake
 build/
-build-*/
 out/
 cmake-build-*/
 CMakeFiles/
@@ -11,16 +10,21 @@ Testing/
 
 # Visual Studio
 .vs/
+*.sln
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
-*.sln
+
+# CLion / JetBrains
+.idea/
 
 # Binaries
 *.exe
 *.dll
+*.so
 *.lib
 *.obj
+*.o
 *.pdb
 *.ilk
 *.exp
@@ -28,3 +32,6 @@ Testing/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
