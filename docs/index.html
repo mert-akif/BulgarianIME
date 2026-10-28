@@ -1,11 +1,14 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BulgarianIME — Latin klavyeden Bulgar Kiril yazımı</title>
-  <meta name="description" content="BulgarianIME, Latin veya Türkçe-Q klavyeyle Bulgar Kiril alfabesi yazmayı kolaylaştıran C++ tabanlı Windows ve Linux giriş yardımcısıdır.">
+  <title>BulgarianIME — Bulgarian Cyrillic typing from a Latin keyboard</title>
+  <meta name="description" content="BulgarianIME is a C++ input helper for Windows and Linux that lets you type Bulgarian Cyrillic using a Latin or Turkish-Q keyboard.">
   <meta name="theme-color" content="#0b1020">
+  <meta property="og:title" content="BulgarianIME">
+  <meta property="og:description" content="Bulgarian Cyrillic typing from a Latin / Turkish-Q keyboard. Windows hook + Linux Fcitx5 support.">
+  <meta property="og:type" content="website">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -14,14 +17,21 @@
 
   <header class="site-header">
     <div class="shell nav-wrap">
-      <a class="brand" href="#top"><span class="brand-mark">Б</span><span>BulgarianIME</span></a>
-      <button class="nav-toggle" type="button" aria-label="Menüyü aç/kapat" aria-expanded="false"><span></span><span></span><span></span></button>
-      <nav class="nav-links">
-        <a href="#features">Özellikler</a>
+      <a class="brand" href="#top" aria-label="BulgarianIME home">
+        <span class="brand-mark">Б</span>
+        <span>BulgarianIME</span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-label="Toggle menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#features">Features</a>
         <a href="#windows">Windows</a>
         <a href="#linux">Linux</a>
-        <a href="#troubleshooting">Sorun giderme</a>
-        <a href="#developer">Nasıl çalışıyor?</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+        <a href="#developer">Developer</a>
         <a class="nav-cta" data-repo-link href="#">GitHub</a>
       </nav>
     </div>
@@ -31,22 +41,33 @@
     <section class="hero shell">
       <div class="hero-copy">
         <div class="eyebrow">C++ • Windows • Linux • Fcitx5</div>
-        <h1>Bulgarca yazmak için <span>Kiril klavye ezberleme.</span></h1>
-        <p class="hero-text">Latin veya Türkçe-Q klavyede alıştığın şekilde yaz. BulgarianIME tuşlarını Bulgar Kiril karakterlerine dönüştürsün.</p>
+        <h1>Type Bulgarian without <span>memorizing a Cyrillic keyboard layout.</span></h1>
+        <p class="hero-text">
+          Type the way you already know on a Latin or Turkish-Q keyboard.
+          BulgarianIME converts your keystrokes into Bulgarian Cyrillic.
+        </p>
+
         <div class="hero-actions">
-          <a class="btn primary" data-release-link href="#">Son sürümü indir</a>
-          <a class="btn secondary" href="#linux">Linux kurulumu</a>
+          <a class="btn primary" data-release-link href="#">Download latest release</a>
+          <a class="btn secondary" href="#linux">Linux installation</a>
         </div>
-        <div class="status-row"><span class="status-dot"></span><span>Windows hook + Linux Fcitx5 desteği</span></div>
+
+        <div class="status-row">
+          <span class="status-dot"></span>
+          <span>Windows hook and Linux Fcitx5 support</span>
+        </div>
       </div>
 
-      <div class="terminal-card">
-        <div class="terminal-top"><div class="window-dots"><span></span><span></span><span></span></div><span>BulgarianIME</span></div>
+      <div class="hero-card terminal-card" aria-label="BulgarianIME example">
+        <div class="terminal-top">
+          <div class="window-dots"><span></span><span></span><span></span></div>
+          <span>BulgarianIME</span>
+        </div>
         <div class="terminal-body">
-          <div class="prompt-label">Sen yazarsın</div>
-          <div class="code-line">zdravey az sım sht</div>
+          <div class="prompt-label">You type</div>
+          <div class="code-line latin">zdravey az sım sht</div>
           <div class="arrow">↓</div>
-          <div class="prompt-label">BulgarianIME yazar</div>
+          <div class="prompt-label">BulgarianIME outputs</div>
           <div class="code-line cyrillic">здравей аз съм щ</div>
         </div>
       </div>
@@ -54,106 +75,355 @@
 
     <section class="section shell" id="features">
       <div class="section-head">
-        <div class="eyebrow">Neden BulgarianIME?</div>
-        <h2>Yeni klavye düzeni öğrenmeden günlük kullanım.</h2>
-        <p>Not almak, mesajlaşmak ve tarayıcıda yazmak için mümkün olduğunca basit tutuldu.</p>
+        <div class="eyebrow">Why BulgarianIME?</div>
+        <h2>Daily use without learning a new keyboard layout.</h2>
+        <p>Designed to stay simple for notes, messaging, browsers, and everyday text input.</p>
       </div>
+
       <div class="feature-grid">
-        <article class="card"><div class="card-icon">⌨</div><h3>Tanıdık tuşlar</h3><p><code>sh → ш</code>, <code>ch → ч</code>, <code>sht → щ</code> gibi doğal transliterasyon.</p></article>
-        <article class="card"><div class="card-icon">TR</div><h3>Türkçe-Q dostu</h3><p><code>ş → ш</code>, <code>ç → ч</code>, <code>j → ж</code>, <code>ı → ъ</code>, <code>şt → щ</code>.</p></article>
-        <article class="card"><div class="card-icon">↯</div><h3>Streaming motor</h3><p>Tüm kelimeyi bellekte tutmaz; sadece değişme ihtimali olan kısa son parçayı bekletir.</p></article>
-        <article class="card"><div class="card-icon">∞</div><h3>Windows + Linux</h3><p>Windows'ta hafif hook, Linux'ta sistemin Fcitx5 input-method altyapısı.</p></article>
+        <article class="card">
+          <div class="card-icon">⌨</div>
+          <h3>Familiar keys</h3>
+          <p>Uses natural transliteration such as <code>sh → ш</code>, <code>ch → ч</code>, and <code>sht → щ</code>.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">TR</div>
+          <h3>Turkish-Q friendly</h3>
+          <p>Includes fast mappings such as <code>ş → ш</code>, <code>ç → ч</code>, <code>j → ж</code>, <code>ı → ъ</code>, and <code>şt → щ</code>.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">↯</div>
+          <h3>Streaming engine</h3>
+          <p>Does not buffer the whole word. Only the short ambiguous suffix that may still change is kept temporarily.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon">∞</div>
+          <h3>Windows + Linux</h3>
+          <p>A lightweight global hook on Windows and the native Fcitx5 input-method framework on Linux.</p>
+        </article>
       </div>
     </section>
 
     <section class="section shell demo-section">
       <div class="section-head compact">
-        <div class="eyebrow">Canlı demo</div>
-        <h2>Tarayıcıda dene.</h2>
-        <p>Temel transliterasyon mantığını sayfadan çıkmadan test et.</p>
+        <div class="eyebrow">Live demo</div>
+        <h2>Try it in your browser.</h2>
+        <p>This demo shows the core transliteration behavior of the project.</p>
       </div>
+
       <div class="demo-grid">
-        <label class="demo-box"><span>Latin / Türkçe-Q</span><textarea id="demoInput" rows="5" spellcheck="false"></textarea></label>
-        <label class="demo-box"><span>Bulgar Kiril</span><textarea id="demoOutput" rows="5" readonly></textarea></label>
+        <label class="demo-box">
+          <span>Latin / Turkish-Q</span>
+          <textarea id="demoInput" rows="5" spellcheck="false" placeholder="zdravey az sım sht"></textarea>
+        </label>
+
+        <label class="demo-box">
+          <span>Bulgarian Cyrillic</span>
+          <textarea id="demoOutput" rows="5" readonly placeholder="здравей аз съм щ"></textarea>
+        </label>
       </div>
-      <div class="mapping-row"><code>sh → ш</code><code>ch → ч</code><code>zh → ж</code><code>sht → щ</code><code>şt → щ</code><code>ya → я</code><code>yu → ю</code><code>ı → ъ</code></div>
+
+      <div class="mapping-row">
+        <code>sh → ш</code><code>ch → ч</code><code>zh → ж</code><code>sht → щ</code>
+        <code>şt → щ</code><code>ya → я</code><code>yu → ю</code><code>ı → ъ</code>
+      </div>
     </section>
 
-    <section class="section shell" id="windows">
-      <div class="platform-title"><span class="platform-badge">Windows</span><h2>Windows kullanımı</h2></div>
+    <section class="section shell platform-section" id="windows">
+      <div class="platform-title">
+        <span class="platform-badge">Windows</span>
+        <h2>Windows usage</h2>
+      </div>
+
       <div class="split">
-        <ol class="steps">
-          <li><div class="step-num">1</div><div><h3>Release paketini indir</h3><p>GitHub Releases sayfasından Windows x64 paketini indir ve arşivi çıkar.</p></div></li>
-          <li><div class="step-num">2</div><div><h3><code>BulgarianIME.exe</code> çalıştır</h3><p>Uygulama arka planda çalışır. Notepad, WhatsApp, Discord ve tarayıcıdaki normal metin alanlarında kullanabilirsin.</p></div></li>
-          <li><div class="step-num">3</div><div><h3>Kısayollar</h3><div class="shortcut-grid"><div><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>B</kbd><span>Aç / kapat</span></div><div><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Q</kbd><span>Çıkış</span></div></div></div></li>
-        </ol>
-        <aside class="note warning"><strong>Windows sürümü hakkında</strong><p>Mevcut sürüm gerçek TSF IME yerine global keyboard hook ve sentetik input kullanır. Şifre alanlarında, anti-cheat kullanılan oyunlarda ve güvenlik açısından hassas uygulamalarda kapalı tut.</p></aside>
+        <div>
+          <ol class="steps">
+            <li>
+              <div class="step-num">1</div>
+              <div>
+                <h3>Download the release package</h3>
+                <p>Download the Windows x64 package from GitHub Releases and extract the archive.</p>
+              </div>
+            </li>
+            <li>
+              <div class="step-num">2</div>
+              <div>
+                <h3>Run <code>BulgarianIME.exe</code></h3>
+                <p>The app processes keyboard input in the background. You can use it in normal text fields such as Notepad, WhatsApp, Discord, and browsers.</p>
+              </div>
+            </li>
+            <li>
+              <div class="step-num">3</div>
+              <div>
+                <h3>Shortcuts</h3>
+                <div class="shortcut-grid">
+                  <div><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>B</kbd><span>Enable / disable</span></div>
+                  <div><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Q</kbd><span>Exit the app</span></div>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <aside class="note warning">
+          <strong>About the Windows version</strong>
+          <p>The current Windows version uses a global keyboard hook and synthetic input instead of a native TSF IME. Keep it disabled in password fields, anti-cheat protected games, and security-sensitive applications.</p>
+        </aside>
       </div>
     </section>
 
-    <section class="section shell linux-section" id="linux">
-      <div class="platform-title"><span class="platform-badge linux">Ubuntu / Linux</span><h2>Fcitx5 ile gerçek input method kurulumu</h2></div>
-      <p class="lead">Linux tarafında hook kullanmıyoruz. BulgarianIME doğrudan <strong>Fcitx5 addon</strong> olarak yüklenir. Bu yüzden uygulamalarla entegrasyon Linux'un kendi input-method sistemi üzerinden gerçekleşir.</p>
+    <section class="section shell platform-section linux-section" id="linux">
+      <div class="platform-title">
+        <span class="platform-badge linux">Ubuntu / Linux</span>
+        <h2>Native input method setup with Fcitx5</h2>
+      </div>
+
+      <p class="lead">
+        On Linux, BulgarianIME does not use the Windows-style hook approach. It is installed directly as an
+        <strong>Fcitx5 addon</strong>, which integrates more naturally with the Linux desktop.
+      </p>
 
       <div class="linux-guide">
-        <article class="guide-card"><div class="guide-number">01</div><div><h3>Gerekli paketleri kur</h3><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>sudo apt update
-sudo apt install fcitx5 fcitx5-config-qt libfcitx5core-dev build-essential cmake ninja-build pkg-config</code></pre></div></div></article>
+        <article class="guide-card">
+          <div class="guide-number">01</div>
+          <div>
+            <h3>Install the required packages</h3>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>sudo apt update
+sudo apt install fcitx5 fcitx5-config-qt libfcitx5core-dev build-essential cmake ninja-build pkg-config</code></pre>
+            </div>
+          </div>
+        </article>
 
-        <article class="guide-card"><div class="guide-number">02</div><div><h3>Projeyi derle</h3><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target bulgarianime</code></pre></div><p class="muted">CLion kullanıyorsan target olarak <code>bulgarianime</code> seç. Bu bir exe değildir; Fcitx5'in yüklediği <code>.so</code> addon'dur.</p></div></article>
+        <article class="guide-card">
+          <div class="guide-number">02</div>
+          <div>
+            <h3>Build the project</h3>
+            <p>From the repository root:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target bulgarianime</code></pre>
+            </div>
+            <p class="muted">If you use CLion, select the <code>bulgarianime</code> target. It is not a normal executable; it is a <code>.so</code> addon loaded by Fcitx5.</p>
+          </div>
+        </article>
 
-        <article class="guide-card"><div class="guide-number">03</div><div><h3>Addon'u sisteme kur</h3><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>sudo cmake --install build
-fcitx5 -rd</code></pre></div></div></article>
+        <article class="guide-card">
+          <div class="guide-number">03</div>
+          <div>
+            <h3>Install the addon</h3>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>sudo cmake --install build</code></pre>
+            </div>
+            <p>Then restart Fcitx5:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>fcitx5 -rd</code></pre>
+            </div>
+          </div>
+        </article>
 
-        <article class="guide-card"><div class="guide-number">04</div><div><h3>Input method listesine ekle</h3><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>fcitx5-configtool</code></pre></div><p><strong>Only Show Current Language</strong> işaretini kaldır. <strong>BulgarianIME</strong> ara ve aktif input method listene ekle.</p></div></article>
+        <article class="guide-card">
+          <div class="guide-number">04</div>
+          <div>
+            <h3>Add BulgarianIME to the input method list</h3>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>fcitx5-configtool</code></pre>
+            </div>
+            <p>Disable <strong>Only Show Current Language</strong>, search for <strong>BulgarianIME</strong>, and add it to your active input methods.</p>
+          </div>
+        </article>
 
-        <article class="guide-card"><div class="guide-number">05</div><div><h3>Fcitx5'i oturumun input method'u yap</h3><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>im-config</code></pre></div><p>Gerekliyse listeden <strong>fcitx5</strong> seç. Ardından oturumu kapatıp aç veya reboot et.</p></div></article>
+        <article class="guide-card">
+          <div class="guide-number">05</div>
+          <div>
+            <h3>Set Fcitx5 as the session input method</h3>
+            <p>If Fcitx5 is not currently configured system-wide:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>im-config</code></pre>
+            </div>
+            <p>Select <strong>fcitx5</strong>, then log out and back in or reboot the system.</p>
+          </div>
+        </article>
 
-        <article class="guide-card success-card"><div class="guide-number">06</div><div><h3>Firefox çalışmıyorsa önce reboot</h3><p>Addon Fcitx5 içinde çalışıp Firefox veya diğer masaüstü uygulamalarında çalışmıyorsa ilk yapacağın şey:</p><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>reboot</code></pre></div><p class="success-text">Bizim Ubuntu kurulumunda uygulama entegrasyonunu tamamlayan adım reboot oldu.</p></div></article>
+        <article class="guide-card success-card">
+          <div class="guide-number">06</div>
+          <div>
+            <h3>A reboot can actually matter</h3>
+            <p>If the addon works inside the Fcitx5 configuration UI but not in normal applications such as Firefox, reboot first.</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>reboot</code></pre>
+            </div>
+            <p class="success-text">On our Ubuntu setup, this was the step that completed integration with Firefox and other applications.</p>
+          </div>
+        </article>
       </div>
     </section>
 
     <section class="section shell" id="troubleshooting">
-      <div class="section-head"><div class="eyebrow">Linux sorun giderme</div><h2>Kurulum sırasında karşılaştığımız gerçek problemler.</h2><p>Bir şey ters giderse büyük ihtimalle aşağıdakilerden biridir.</p></div>
+      <div class="section-head">
+        <div class="eyebrow">Linux troubleshooting</div>
+        <h2>Real problems we encountered during setup.</h2>
+        <p>If something goes wrong, it is likely one of the cases below.</p>
+      </div>
+
       <div class="faq">
-        <details open><summary><span>“Could not locate library bulgarianime.so”</span><span class="plus">+</span></summary><div class="faq-content"><p>Fcitx addon tanımını görüyor ama derlenen <code>bulgarianime.so</code> doğru addon dizininde değil demektir.</p><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>SRC=$(find ~/Downloads -type f -name 'bulgarianime.so' -print -quit)
-LIBDIR=$(pkg-config --variable=libdir Fcitx5Core)
+        <details open>
+          <summary><span>Fcitx5: “Could not locate library bulgarianime.so”</span><span class="plus">+</span></summary>
+          <div class="faq-content">
+            <p>The addon definition was found, but the compiled <code>bulgarianime.so</code> is not in the Fcitx5 addon directory.</p>
+            <p>First, locate the compiled file:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>SRC=$(find ~/Downloads -type f -name 'bulgarianime.so' -print -quit)
+echo "$SRC"</code></pre>
+            </div>
+
+            <p>Find the actual Fcitx5 library directory using <code>pkg-config</code>:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>LIBDIR=$(pkg-config --variable=libdir Fcitx5Core)
 ADDON_DIR="$LIBDIR/fcitx5"
+echo "$ADDON_DIR"</code></pre>
+            </div>
 
-echo "$SRC"
-echo "$ADDON_DIR"</code></pre></div><p>Dosyayı doğru yere kur:</p><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>sudo install -m755 "$SRC" "$ADDON_DIR/bulgarianime.so"
-fcitx5 -rd</code></pre></div><p>Başarılı yüklemede logda:</p><pre class="mini-log"><code>Loaded addon bulgarianime</code></pre></div></details>
+            <p>Then install the addon into the correct directory:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>sudo install -m755 "$SRC" "$ADDON_DIR/bulgarianime.so"
+fcitx5 -rd</code></pre>
+            </div>
 
-        <details><summary><span>BulgarianIME listede görünmüyor</span><span class="plus">+</span></summary><div class="faq-content"><p><code>fcitx5-configtool</code> içinde <strong>Only Show Current Language</strong> seçeneğini kapat ve tekrar ara.</p><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>find /usr -iname '*bulgarianime*' 2&gt;/dev/null</code></pre></div></div></details>
+            <p>When it works, the Fcitx log should contain:</p>
+            <pre class="mini-log"><code>Loaded addon bulgarianime</code></pre>
+          </div>
+        </details>
 
-        <details><summary><span>Fcitx5 içinde çalışıyor, Firefox'ta çalışmıyor</span><span class="plus">+</span></summary><div class="faq-content"><p>Önce reboot et. Oturum değişkenleri ve frontend entegrasyonu yeni oturumda doğru şekilde yüklenebilir.</p><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>reboot</code></pre></div><p>Hâlâ çalışmazsa <code>im-config</code> ile Fcitx5'in seçildiğini doğrula.</p></div></details>
+        <details>
+          <summary><span>BulgarianIME appears in Fcitx5 but does not work in Firefox</span><span class="plus">+</span></summary>
+          <div class="faq-content">
+            <p>Try a <strong>reboot</strong> first. Fcitx5 input-method environment settings may need a fresh desktop session.</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>reboot</code></pre>
+            </div>
+            <p>If it still does not work, verify with <code>im-config</code> that Fcitx5 is selected.</p>
+          </div>
+        </details>
 
-        <details><summary><span>“Failed to open wayland connection” görüyorum</span><span class="plus">+</span></summary><div class="faq-content"><p>X11 oturumundaysan bu mesaj tek başına hata değildir. Aynı logda X11'e bağlanıldığını ve sonunda <code>Loaded addon bulgarianime</code> görüyor olabilirsin.</p><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>echo $XDG_SESSION_TYPE</code></pre></div></div></details>
+        <details>
+          <summary><span>BulgarianIME does not appear in the Fcitx5 input method list</span><span class="plus">+</span></summary>
+          <div class="faq-content">
+            <p>Open <code>fcitx5-configtool</code>, disable <strong>Only Show Current Language</strong>, then search for <code>BulgarianIME</code>.</p>
+            <p>If it still does not appear, check the installed files:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>find /usr -iname '*bulgarianime*' 2&gt;/dev/null</code></pre>
+            </div>
+          </div>
+        </details>
 
-        <details><summary><span>CLion'da hangi target?</span><span class="plus">+</span></summary><div class="faq-content"><p>Linux için <code>bulgarianime</code> target'ını <strong>build</strong> et. Run etmeye çalışma. <code>bgime-cli</code> yalnızca terminal testi içindir.</p></div></details>
+        <details>
+          <summary><span>I see “Failed to open wayland connection”</span><span class="plus">+</span></summary>
+          <div class="faq-content">
+            <p>If you are using an X11 session, this line alone does not mean BulgarianIME is broken. If the log shows <code>Connecting to X11 display</code> and later <code>Loaded addon bulgarianime</code>, the addon is loaded.</p>
+            <p>To check your session type:</p>
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>echo $XDG_SESSION_TYPE</code></pre>
+            </div>
+          </div>
+        </details>
 
-        <details><summary><span>Daha ayrıntılı teşhis</span><span class="plus">+</span></summary><div class="faq-content"><div class="code-block"><button class="copy-btn">Kopyala</button><pre><code>fcitx5-diagnose</code></pre></div><p>Frontend, input method ve ortam yapılandırmasıyla ilgili bilgileri toplar.</p></div></details>
+        <details>
+          <summary><span>Which CLion target should I use?</span><span class="plus">+</span></summary>
+          <div class="faq-content">
+            <p>On Linux, you <strong>build</strong> the <code>bulgarianime</code> target; you do not run it like a normal executable. The output is a shared library loaded by Fcitx5.</p>
+            <p><code>bgime-cli</code> is only for testing the transliteration engine in a terminal.</p>
+          </div>
+        </details>
+
+        <details>
+          <summary><span>How can I diagnose Fcitx5 in more detail?</span><span class="plus">+</span></summary>
+          <div class="faq-content">
+            <div class="code-block">
+              <button class="copy-btn" type="button">Copy</button>
+              <pre><code>fcitx5-diagnose</code></pre>
+            </div>
+            <p>This output is useful for diagnosing frontend, environment-variable, and input-method configuration problems.</p>
+          </div>
+        </details>
       </div>
     </section>
 
-    <section class="section shell" id="developer">
-      <div class="section-head compact"><div class="eyebrow">Nasıl çalışıyor?</div><h2>Kelimeyi baştan yazmayan streaming tasarım.</h2></div>
-      <div class="architecture-flow">
-        <div class="arch-node"><span>1</span><strong>Tuş</strong><small>Latin / Türkçe-Q input</small></div><div class="arch-arrow">→</div>
-        <div class="arch-node highlight"><span>2</span><strong>C++ Core</strong><small>Mapping + Composer</small></div><div class="arch-arrow">→</div>
-        <div class="arch-node"><span>3A</span><strong>Windows</strong><small>Global hook</small></div>
-        <div class="arch-node"><span>3B</span><strong>Linux</strong><small>Fcitx5 preedit / commit</small></div>
+    <section class="section shell architecture" id="developer">
+      <div class="section-head compact">
+        <div class="eyebrow">How does it work?</div>
+        <h2>A streaming design that does not rewrite the whole word.</h2>
       </div>
-      <div class="tech-note"><p>İlk prototipte kelimenin tamamı Space veya Enter'a kadar tutulabiliyordu. Güncel yaklaşım sadece <code>s</code>, <code>sh</code>, <code>z</code>, <code>c</code>, <code>y</code> gibi gelecek karakterle değişebilecek kısa suffix'i bekletir. Kesinleşen karakterler anında commit edilir. Mouse click veya imleç hareketinde state temizlenir.</p></div>
+
+      <div class="architecture-flow">
+        <div class="arch-node">
+          <span>1</span>
+          <strong>Key</strong>
+          <small>Latin / Turkish-Q input</small>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node highlight">
+          <span>2</span>
+          <strong>C++ Core</strong>
+          <small>Mapping + Composer</small>
+        </div>
+        <div class="arch-arrow">→</div>
+        <div class="arch-node">
+          <span>3A</span>
+          <strong>Windows</strong>
+          <small>Global hook</small>
+        </div>
+        <div class="arch-node">
+          <span>3B</span>
+          <strong>Linux</strong>
+          <small>Fcitx5 preedit / commit</small>
+        </div>
+      </div>
+
+      <div class="tech-note">
+        <p>
+          The old approach could keep the entire word until Space or Enter and rewrite it whenever a new character arrived.
+          The current engine only keeps a <strong>short ambiguous suffix that may still change</strong>, such as
+          <code>s</code>, <code>sh</code>, <code>z</code>, <code>c</code>, or <code>y</code>.
+          Characters are committed as soon as they become unambiguous.
+        </p>
+      </div>
     </section>
 
     <section class="section shell final-cta">
-      <div><div class="eyebrow">Açık kaynak</div><h2>Kodu incele, dene, sorun bildir.</h2><p>Windows TSF, ayarlanabilir mapping, sistem tepsisi ve daha kolay Linux paketleme sonraki hedefler arasında.</p></div>
-      <div class="hero-actions"><a class="btn primary" data-repo-link href="#">GitHub deposu</a><a class="btn secondary" data-issues-link href="#">Issue aç</a></div>
+      <div>
+        <div class="eyebrow">Open source</div>
+        <h2>Inspect the code, try it, and report issues.</h2>
+        <p>BulgarianIME is still evolving. Native Windows TSF support, configurable mappings, and easier Linux packaging are among the next goals.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn primary" data-repo-link href="#">GitHub repository</a>
+        <a class="btn secondary" data-issues-link href="#">Open an issue</a>
+      </div>
     </section>
   </main>
 
-  <footer><div class="shell footer-inner"><div class="brand footer-brand"><span class="brand-mark">Б</span><span>BulgarianIME</span></div><p>C++ ile geliştirilen Latin → Bulgar Kiril input helper.</p><span id="year"></span></div></footer>
+  <footer>
+    <div class="shell footer-inner">
+      <div class="brand footer-brand"><span class="brand-mark">Б</span><span>BulgarianIME</span></div>
+      <p>Latin → Bulgarian Cyrillic input helper built in C++.</p>
+      <span id="year"></span>
+    </div>
+  </footer>
+
   <script src="script.js"></script>
 </body>
 </html>
